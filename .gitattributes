@@ -1,0 +1,21 @@
+# Normalise to LF in the repository. The GitHub Actions runner is Linux, and a
+# workflow file or shell fragment checked out with CRLF produces errors that are
+# hard to read ("$'\r': command not found"), so these are pinned explicitly.
+* text=auto eol=lf
+
+*.yml   text eol=lf
+*.yaml  text eol=lf
+*.sh    text eol=lf
+*.py    text eol=lf
+*.md    text eol=lf
+*.csv   text eol=lf
+
+# PowerShell stays CRLF - it is only ever run on Windows.
+*.ps1   text eol=crlf
+
+# Notebooks are JSON; keep them diffable but never CRLF-mangled.
+*.ipynb text eol=lf
+
+# Generated HTML reports are not tracked, but mark them binary if ever forced in
+# so they never pollute a diff.
+*.html  -diff
