@@ -37,6 +37,29 @@ Remove it later with `-Remove`.
 Upload `commodity_gex_dashboard.ipynb`, then `Runtime > Run all`. Snapshots persist
 to Google Drive. Everything before Cell 15 is definitions; Cell 15 is the run.
 
+## Quick start — GitHub Actions (dashboard on the web)
+
+The repo is committed and the workflow is ready. Create an **empty private repo**
+on GitHub (no README, no .gitignore), then:
+
+```bash
+git remote add origin https://github.com/<you>/commodity-gex.git
+git push -u origin main
+```
+
+Then, once, in the repo's **Settings → Pages**, set **Source = GitHub Actions**.
+
+Trigger the first run from the **Actions** tab → *Daily commodity GEX* → *Run
+workflow*. After it succeeds the dashboard is live at
+`https://<you>.github.io/commodity-gex/` and rebuilds every weekday at 21:30 UTC.
+
+**A caveat worth knowing up front:** Yahoo rate-limits datacenter IPs, and GitHub
+runners are datacenter IPs. This may work fine, or it may 429 intermittently — it
+cannot be tested from a local machine. The workflow passes `--min-success 5`, so a
+run that only retrieves a few commodities **fails loudly instead of publishing a
+report that looks complete**. Your Windows scheduled task is the reliable path;
+treat CI as the convenience layer for reading it off your phone.
+
 ---
 
 ## Files
@@ -47,6 +70,7 @@ to Google Drive. Everything before Cell 15 is definitions; Cell 15 is the run.
 | `run_gex.py` | **Headless runner** → self-contained HTML dashboard. No Jupyter needed. |
 | `setup_schedule.ps1` | Registers/removes the weekday Windows Scheduled Task. |
 | `.github/workflows/daily-gex.yml` | Free-tier CI that runs it daily and publishes to GitHub Pages. |
+| `.gitignore` / `.gitattributes` | Keeps the 4.5 MB reports out of history; pins LF for the Linux runner. |
 | `requirements.txt` | Dependencies. |
 | `commodity_gex_dashboard.py` | The notebook as a flat script (what the runner and CI execute). |
 | `src_01.py` … `src_10.py` | Cell sources. **Edit these, not the `.ipynb`.** |
