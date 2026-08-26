@@ -1,0 +1,14 @@
+numpy>=1.26
+pandas>=2.0
+scipy>=1.11
+plotly>=5.20
+
+# Windows only: lets Python verify HTTPS against the OS certificate store.
+# Harmless to omit on Linux/macOS and in Colab.
+truststore>=0.9 ; sys_platform == "win32"
+
+# Only needed to execute the .ipynb headlessly (the GitHub Action path).
+# run_gex.py does not need these.
+nbconvert>=7.0
+nbclient>=0.9
+ipykernel>=6.29

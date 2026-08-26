@@ -1,0 +1,109 @@
+name: Daily commodity GEX
+
+on:
+  schedule:
+    # 21:30 UTC on weekdays - after the 16:00 ET US equity close, so open interest
+    # for the session is settled rather than being yesterday's number.
+    # GitHub's scheduler is best-effort and can lag a busy hour; that is fine here
+    # because the data is end-of-day, not intraday.
+    - cron: "30 21 * * 1-5"
+  workflow_dispatch:
+    inputs:
+      watchlist:
+        description: "Comma-separated commodity keys (blank = default eight)"
+        required: false
+        default: ""
+
+permissions:
+  contents: write      # to commit the snapshot history back
+  pages: write         # to publish the dashboard
+  id-token: write      # required by actions/deploy-pages
+
+concurrency:
+  group: daily-gex
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Build the dashboard
+        # --min-success 5 fails the job rather than publishing a report that looks
+        # complete but is missing half the complex. Yahoo rate-limits datacenter
+        # IPs, and GitHub runners are datacenter IPs, so this is the expected
+        # failure mode - not an unlikely one.
+        #
+        # The watchlist arrives via env rather than being interpolated straight
+        # into the script: a `${{ }}` expansion inside a run block is substituted
+        # as raw text before bash parses it, so any input containing shell
+        # metacharacters would execute. Passing through env keeps it a value.
+        # The flag is omitted entirely when empty, rather than passed as "",
+        # because an empty argument is fragile across shells.
+        env:
+          WATCHLIST: ${{ github.event.inputs.watchlist }}
+        run: |
+          args=(--outdir output --no-archive --min-success 5)
+          if [ -n "$WATCHLIST" ]; then
+            args+=(--watchlist "$WATCHLIST")
+          fi
+          python run_gex.py "${args[@]}"
+
+      - name: Stage the site
+        run: |
+          mkdir -p site
+          cp output/gex_dashboard.html site/index.html
+          cp -r output/data site/data
+
+      - name: Commit the snapshot history
+        run: |
+          git config user.name  "gex-bot"
+          git config user.email "gex-bot@users.noreply.github.com"
+          # Only the data. The HTML is ~4.5 MB per run and is published to Pages
+          # instead - committing it would add roughly a gigabyte a year.
+          git add -f output/data/gex_history.csv output/data/chains
+          if git diff --staged --quiet; then
+            echo "No new data to commit."
+          else
+            git commit -m "GEX snapshot $(date -u +%Y-%m-%d)"
+            # Re-run of the same day, or a push landed while we were building.
+            git pull --rebase --autostash origin "${GITHUB_REF_NAME}" || true
+            git push origin "HEAD:${GITHUB_REF_NAME}"
+          fi
+
+      - name: Upload the dashboard as a downloadable artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gex-dashboard-${{ github.run_number }}
+          path: output/gex_dashboard.html
+          retention-days: 30
+          if-no-files-found: warn
+
+      - name: Package for Pages
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    # Publishes to https://<user>.github.io/<repo>/
+    # One-time setup: repo Settings > Pages > Source = "GitHub Actions".
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

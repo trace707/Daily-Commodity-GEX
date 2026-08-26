@@ -1,0 +1,27 @@
+# Generated dashboards. Each report is ~4.5 MB; committing one per trading day
+# would add roughly a gigabyte a year. The HTML is published to GitHub Pages and
+# uploaded as a build artifact instead. Only output/data/ is version-controlled,
+# and the workflow force-adds it.
+output/gex_dashboard.html
+output/archive/
+site/
+
+# Test scratch
+_test_snapshots/
+_dbg/
+_test_futures_chain.csv
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.ipynb_checkpoints/
+
+# Executed notebook copies
+executed.ipynb
+
+# OS
+Thumbs.db
+desktop.ini
+.DS_Store
