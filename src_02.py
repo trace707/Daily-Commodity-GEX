@@ -269,6 +269,31 @@ class YahooClient:
 
 CLIENT = YahooClient(CFG)
 
-# Smoke test - proves auth works before anything expensive runs.
-_t = CLIENT.quote("GC=F")
-print(f"Data client live. {_t['name']}: {_t['price']:,.2f}  ({_t['timestamp']:%Y-%m-%d %H:%M UTC})")
+
+def check_data_source(verbose: bool = True) -> tuple[bool, str]:
+    """Confirm the data source is reachable. Never raises.
+
+    This is a diagnostic, not a gate. It used to be a bare module-level call, but
+    that made a transient data outage explode during import - before any of the
+    error handling downstream could report what actually went wrong. A caller that
+    needs the data to be present should check the return value.
+    """
+    try:
+        q = CLIENT.quote("GC=F")
+        msg = f"Data source live. {q['name']}: {q['price']:,.2f} ({q['timestamp']:%Y-%m-%d %H:%M UTC})"
+        if verbose:
+            print(msg)
+        return True, msg
+    except Exception as exc:
+        msg = (
+            f"Data source UNREACHABLE - {type(exc).__name__}: {exc}\n"
+            "  Yahoo rate-limits datacenter IP ranges, so this is the expected\n"
+            "  failure on CI runners and cloud VMs. On a home connection it usually\n"
+            "  means a transient outage; retry in a few minutes."
+        )
+        if verbose:
+            print(msg)
+        return False, msg
+
+
+DATA_SOURCE_OK, DATA_SOURCE_MSG = check_data_source()

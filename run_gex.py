@@ -286,8 +286,27 @@ def main() -> int:
     started = dt.datetime.now(dt.timezone.utc)
     print(f"[{started:%Y-%m-%d %H:%M:%S UTC}] commodity GEX run starting")
 
-    mod = load_notebook_module(args.mode, outdir)
+    try:
+        mod = load_notebook_module(args.mode, outdir)
+    except Exception as exc:
+        print(f"\nFailed while loading the dashboard code: {type(exc).__name__}: {exc}",
+              file=sys.stderr)
+        traceback.print_exc()
+        return 4
     g = mod.__dict__
+
+    # Preflight. Reaching the data source is the single most common failure, and
+    # it is worth naming explicitly rather than letting eight commodities fail one
+    # by one with the same underlying cause.
+    if not g.get("DATA_SOURCE_OK", True):
+        print("\n" + "=" * 70, file=sys.stderr)
+        print("PREFLIGHT FAILED - the market data source is not reachable.", file=sys.stderr)
+        print(g.get("DATA_SOURCE_MSG", ""), file=sys.stderr)
+        print("=" * 70, file=sys.stderr)
+        if args.min_success:
+            # In CI, stop here: every commodity would fail for the same reason.
+            return 5
+        print("Continuing anyway - individual commodities may still succeed.", file=sys.stderr)
 
     watchlist = ([w.strip() for w in args.watchlist.split(",") if w.strip()]
                  or g["DEFAULT_WATCHLIST"])

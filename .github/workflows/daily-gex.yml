@@ -39,6 +39,39 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
+      - name: Probe the data source
+        # Yahoo rate-limits datacenter IP ranges and GitHub runners are datacenter
+        # IPs, so name that failure explicitly instead of letting it surface as a
+        # generic non-zero exit from the build step. Never fails the job - it is
+        # here to make the log readable.
+        continue-on-error: true
+        run: |
+          python - <<'PY'
+          import json, urllib.request, urllib.error, http.cookiejar
+          UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                "(KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36")
+          jar = http.cookiejar.CookieJar()
+          op = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(jar))
+
+          def probe(label, url):
+              try:
+                  r = op.open(urllib.request.Request(url, headers={"User-Agent": UA}), timeout=30)
+                  body = r.read()[:120]
+                  print(f"  {label:<22} HTTP {r.status}  {len(body)} bytes  {body[:60]!r}")
+                  return r.status
+              except urllib.error.HTTPError as e:
+                  print(f"  {label:<22} HTTP {e.code} {e.reason}")
+                  return e.code
+              except Exception as e:
+                  print(f"  {label:<22} {type(e).__name__}: {e}")
+                  return None
+
+          print("Data-source reachability from this runner:")
+          probe("chart api (no auth)", "https://query1.finance.yahoo.com/v8/finance/chart/GC=F?range=5d&interval=1d")
+          probe("cookie primer", "https://fc.yahoo.com/")
+          probe("crumb", "https://query2.finance.yahoo.com/v1/test/getcrumb")
+          PY
+
       - name: Build the dashboard
         # --min-success 5 fails the job rather than publishing a report that looks
         # complete but is missing half the complex. Yahoo rate-limits datacenter
