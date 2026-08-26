@@ -51,7 +51,13 @@
 # =============================================================================
 # CELL 2 — Install
 # =============================================================================
-import importlib, subprocess, sys
+# `import importlib` alone does NOT bind the `util` submodule - it has to be
+# imported explicitly. This works either way on Windows, where truststore drags
+# importlib.util in as a side effect, but truststore is a win32-only requirement,
+# so on Linux and in CI the bare import raises AttributeError here.
+import importlib.util
+import subprocess
+import sys
 
 _need = []
 for _mod, _pip in [("plotly", "plotly>=5.20"), ("scipy", "scipy"), ("pandas", "pandas"), ("numpy", "numpy")]:

@@ -39,6 +39,12 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
+      - name: Check for Windows-only assumptions
+        # The notebook is authored on Windows and run here on Ubuntu. This catches
+        # the platform gap offline, before any network call, so a portability bug
+        # cannot masquerade as a data outage.
+        run: python test_ci_env.py
+
       - name: Probe the data source
         # Yahoo rate-limits datacenter IP ranges and GitHub runners are datacenter
         # IPs, so name that failure explicitly instead of letting it surface as a
